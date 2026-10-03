@@ -1,7 +1,20 @@
-import { pgTable, pgEnum, uuid, text, timestamp, jsonb, pgPolicy, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, uuid, text, timestamp, jsonb, integer, boolean, pgPolicy, index, unique } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { appUser } from "./roles.ts";
 import { user } from "./auth-schema.ts";
+
+// Platform plans. Limits enforced in Phase 9; null = unlimited. Global table (not tenant data).
+export const plan = pgTable(
+  "plan",
+  {
+    id: text().primaryKey(),
+    name: text().notNull(),
+    maxStudents: integer("max_students"),
+    maxStorageMb: integer("max_storage_mb"),
+    whiteLabel: boolean("white_label").notNull().default(false),
+  },
+  () => [pgPolicy("plan_app", { for: "all", to: appUser, using: sql`true`, withCheck: sql`true` })],
+).enableRLS();
 
 // school = tenant root, looked up by slug before tenant context exists.
 // RLS on with a policy for app_user only, so Supabase anon/authenticated (PostgREST) see nothing.
@@ -11,6 +24,12 @@ export const school = pgTable(
     id: uuid().primaryKey().defaultRandom(),
     slug: text().notNull().unique(),
     name: text().notNull(),
+    status: text({ enum: ["active", "suspended"] }).notNull().default("active"),
+    planId: text("plan_id").notNull().default("trial").references(() => plan.id),
+    logoKey: text("logo_key"),
+    primaryColor: text("primary_color"),
+    locale: text().notNull().default("en"),
+    features: jsonb().$type<Record<string, boolean>>().notNull().default({}),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   () => [pgPolicy("school_app", { for: "all", to: appUser, using: sql`true`, withCheck: sql`true` })],

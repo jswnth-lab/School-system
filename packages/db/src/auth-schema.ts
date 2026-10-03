@@ -21,6 +21,8 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  // Platform owner (you). Set only by the create-platform-admin script; never writable via the auth API (input:false).
+  platformAdmin: boolean("platform_admin").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

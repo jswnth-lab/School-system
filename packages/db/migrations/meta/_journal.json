@@ -22,6 +22,13 @@
       "when": 1791016261721,
       "tag": "0002_free_the_renegades",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791016838091,
+      "tag": "0003_rare_leader",
+      "breakpoints": true
     }
   ]
 }

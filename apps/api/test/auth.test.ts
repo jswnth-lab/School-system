@@ -6,7 +6,7 @@ import { app } from "../src/app.ts";
 import { createAuth } from "../src/auth.ts";
 
 // Needs DATABASE_URL (app_user, no BYPASSRLS) and BETTER_AUTH_SECRET in .dev.vars. Leaves rows with slug "test-*"; clean via owner role.
-const env = { DATABASE_URL: process.env.DATABASE_URL!, BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "test-secret-test-secret-test-secret-123" };
+const env = { DATABASE_URL: process.env.DATABASE_URL!, BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "test-secret-test-secret-test-secret-123", FILES: {} as any };
 const db = connect(env.DATABASE_URL);
 after(() => db.$client.end());
 

@@ -1,19 +1,14 @@
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { connect, school, user, membership, auditLog, withTenant, type Db } from "@sms/db";
-import { createAuth, type Auth, type Bindings } from "./auth.ts";
-import { requireRole, canCreate, type Role } from "./rbac.ts";
+import { connect, school, user, membership, auditLog, withTenant } from "@sms/db";
+import { createAuth } from "./auth.ts";
+import { requireRole, canCreate } from "./rbac.ts";
+import { platform } from "./platform.ts";
+import { emailFor, createCredentialUser } from "./users.ts";
+import type { Env } from "./types.ts";
 
-type Env = {
-  Bindings: Bindings;
-  Variables: { db: Db; auth: Auth; schoolId: string; slug: string; userId: string; roles: Role[] };
-};
 export const app = new Hono<Env>();
-
-// Students without email sign in with a username; stored as a synthetic address unique per school.
-const emailFor = (slug: string, identifier: string) =>
-  identifier.includes("@") ? identifier.toLowerCase() : `${identifier.toLowerCase()}@${slug}.users.invalid`;
 
 app.get("/api/v1/health", (c) => c.json({ ok: true }));
 
@@ -30,11 +25,15 @@ app.use("/api/*", async (c, next) => {
 // Identity is global (Better Auth); access is per school via membership. Registered before /:school, so "auth" is a reserved slug.
 app.on(["GET", "POST"], "/api/v1/auth/*", (c) => c.get("auth").handler(c.req.raw));
 
+app.route("/api/v1/platform", platform); // "platform" is a reserved slug
+
 const tenant = new Hono<Env>();
 tenant.use("*", async (c, next) => {
   const slug = c.req.param("school")!;
   const [s] = await c.get("db").select().from(school).where(eq(school.slug, slug));
   if (!s) return c.json({ error: "unknown school" }, 404);
+  if (s.status === "suspended") return c.json({ error: "school_suspended" }, 403);
+  c.set("school", s);
   c.set("schoolId", s.id);
   c.set("slug", s.slug);
   await next();
@@ -46,13 +45,39 @@ const session = async (c: any, next: any) => {
   const rows = await withTenant(c.get("db"), c.get("schoolId"), (tx) =>
     tx.select({ role: membership.role }).from(membership).where(eq(membership.userId, s.user.id)),
   );
-  if (!rows.length) return c.json({ error: "forbidden" }, 403); // valid session, but not a member of this school
+  // Platform admins act as principal in any school; every non-GET request is audited.
+  const impersonating = !rows.length && !!s.user.platformAdmin;
+  if (!rows.length && !impersonating) return c.json({ error: "forbidden" }, 403); // valid session, not a member of this school
   c.set("userId", s.user.id);
-  c.set("roles", rows.map((r) => r.role));
+  c.set("roles", impersonating ? ["principal"] : rows.map((r: { role: string }) => r.role));
+  c.set("impersonating", impersonating);
   await next();
+  if (impersonating && c.req.method !== "GET") {
+    await withTenant(c.get("db"), c.get("schoolId"), (tx) =>
+      tx.insert(auditLog).values({
+        schoolId: c.get("schoolId"), actorUserId: s.user.id, action: "impersonation.write",
+        meta: { method: c.req.method, path: new URL(c.req.url).pathname, status: c.res.status },
+      }),
+    );
+  }
 };
 
-tenant.get("/config", (c) => c.json({ schoolId: c.get("schoolId"), slug: c.get("slug") })); // branding goes here
+tenant.get("/config", (c) => {
+  const s = c.get("school");
+  return c.json({
+    schoolId: s.id, slug: s.slug, name: s.name, locale: s.locale, primaryColor: s.primaryColor, features: s.features,
+    logoUrl: s.logoKey ? `/api/v1/${s.slug}/logo` : null,
+  });
+});
+
+tenant.get("/logo", async (c) => {
+  const key = c.get("school").logoKey;
+  const obj = key ? await c.env.FILES.get(key) : null;
+  if (!obj) return c.json({ error: "no logo" }, 404);
+  return new Response(obj.body, {
+    headers: { "content-type": obj.httpMetadata?.contentType ?? "application/octet-stream", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" },
+  });
+});
 
 tenant.post("/login", async (c) => {
   const body = z.object({ identifier: z.string().min(1), password: z.string().min(1) }).safeParse(await c.req.json().catch(() => null));
@@ -92,9 +117,7 @@ tenant.post("/users", session, requireRole("principal", "admin"), async (c) => {
   const [existing] = await db.select({ id: user.id }).from(user).where(eq(user.email, email));
   if (existing) return c.json({ error: "user already exists" }, 409); // linking existing accounts needs an invite flow
 
-  const ctx = await c.get("auth").$context;
-  const u = await ctx.internalAdapter.createUser({ email, name, emailVerified: !!body.data.username }, { method: "admin" });
-  await ctx.internalAdapter.linkAccount({ userId: u.id, providerId: "credential", accountId: u.id, password: await ctx.password.hash(password) });
+  const u = await createCredentialUser(c.get("auth"), { email, name, password, verified: !!body.data.username });
   await withTenant(db, c.get("schoolId"), async (tx) => {
     await tx.insert(membership).values({ schoolId: c.get("schoolId"), userId: u.id, role });
     await tx.insert(auditLog).values({
