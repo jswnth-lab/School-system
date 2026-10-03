@@ -33,3 +33,20 @@ export async function bearerFor(email: string, password: string) {
   const r = await call("/api/v1/auth/sign-in/email", json({ email, password }));
   return { authorization: `Bearer ${r.headers.get("set-auth-token")}` };
 }
+
+/** Create a school directly (as the app role) with a principal and teacher; returns bearer headers. */
+export async function seedSchool(prefix: string) {
+  const { school, membership } = await import("@sms/db");
+  const { withTenant } = await import("@sms/db");
+  const t = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const [s] = await db.insert(school).values({ slug: `test-${prefix}-${t}`, name: prefix }).returning();
+  const out = {} as { principal: { authorization: string }; teacher: { authorization: string } };
+  for (const role of ["principal", "teacher"] as const) {
+    const email = `${role}-${t}@${s.slug}.users.invalid`;
+    const u = await createCredentialUser(authFor(), { email, name: role, password: "password123", verified: true });
+    await withTenant(db, s.id, (tx) => tx.insert(membership).values({ schoolId: s.id, userId: u.id, role }));
+    const r = await call(`/api/v1/${s.slug}/login`, json({ identifier: email, password: "password123" }));
+    out[role] = { authorization: `Bearer ${r.headers.get("set-auth-token")}` };
+  }
+  return { school: s, ...out };
+}

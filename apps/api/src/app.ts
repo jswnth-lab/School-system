@@ -5,6 +5,8 @@ import { connect, school, user, membership, auditLog, withTenant } from "@sms/db
 import { createAuth } from "./auth.ts";
 import { requireRole, canCreate } from "./rbac.ts";
 import { platform } from "./platform.ts";
+import { session } from "./session.ts";
+import { structure } from "./structure.ts";
 import { emailFor, createCredentialUser } from "./users.ts";
 import type { Env } from "./types.ts";
 
@@ -38,29 +40,6 @@ tenant.use("*", async (c, next) => {
   c.set("slug", s.slug);
   await next();
 });
-
-const session = async (c: any, next: any) => {
-  const s = await c.get("auth").api.getSession({ headers: c.req.raw.headers });
-  if (!s) return c.json({ error: "unauthenticated" }, 401);
-  const rows = await withTenant(c.get("db"), c.get("schoolId"), (tx) =>
-    tx.select({ role: membership.role }).from(membership).where(eq(membership.userId, s.user.id)),
-  );
-  // Platform admins act as principal in any school; every non-GET request is audited.
-  const impersonating = !rows.length && !!s.user.platformAdmin;
-  if (!rows.length && !impersonating) return c.json({ error: "forbidden" }, 403); // valid session, not a member of this school
-  c.set("userId", s.user.id);
-  c.set("roles", impersonating ? ["principal"] : rows.map((r: { role: string }) => r.role));
-  c.set("impersonating", impersonating);
-  await next();
-  if (impersonating && c.req.method !== "GET") {
-    await withTenant(c.get("db"), c.get("schoolId"), (tx) =>
-      tx.insert(auditLog).values({
-        schoolId: c.get("schoolId"), actorUserId: s.user.id, action: "impersonation.write",
-        meta: { method: c.req.method, path: new URL(c.req.url).pathname, status: c.res.status },
-      }),
-    );
-  }
-};
 
 tenant.get("/config", (c) => {
   const s = c.get("school");
@@ -127,4 +106,5 @@ tenant.post("/users", session, requireRole("principal", "admin"), async (c) => {
   return c.json({ id: u.id, email, role }, 201);
 });
 
+tenant.route("/structure", structure);
 app.route("/api/v1/:school", tenant);

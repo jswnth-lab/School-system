@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, uuid, text, timestamp, jsonb, integer, boolean, pgPolicy, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, uuid, text, timestamp, jsonb, integer, boolean, date, pgPolicy, index, unique } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { appUser } from "./roles.ts";
 import { user } from "./auth-schema.ts";
@@ -43,14 +43,49 @@ const tenant = (t: string) =>
     withCheck: sql`school_id = current_setting('app.school_id')::uuid`,
   });
 
+const base = () => ({
+  id: uuid().primaryKey().defaultRandom(),
+  schoolId: uuid("school_id").notNull().references(() => school.id),
+});
+
 export const academicYear = pgTable(
   "academic_year",
+  { ...base(), name: text().notNull(), startDate: date("start_date"), endDate: date("end_date"), current: boolean().notNull().default(false) },
+  (t) => [index("academic_year_school").on(t.schoolId), tenant("academic_year")],
+).enableRLS();
+
+export const term = pgTable(
+  "term",
   {
-    id: uuid().primaryKey().defaultRandom(),
-    schoolId: uuid("school_id").notNull().references(() => school.id),
+    ...base(),
+    academicYearId: uuid("academic_year_id").notNull().references(() => academicYear.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+  },
+  (t) => [index("term_school").on(t.schoolId), index("term_year").on(t.academicYearId), tenant("term")],
+).enableRLS();
+
+export const gradeLevel = pgTable(
+  "grade_level",
+  { ...base(), name: text().notNull(), position: integer().notNull().default(0) },
+  (t) => [index("grade_level_school").on(t.schoolId), unique("grade_level_name").on(t.schoolId, t.name), tenant("grade_level")],
+).enableRLS();
+
+export const section = pgTable(
+  "section",
+  {
+    ...base(),
+    gradeLevelId: uuid("grade_level_id").notNull().references(() => gradeLevel.id, { onDelete: "cascade" }),
     name: text().notNull(),
   },
-  (t) => [index("academic_year_school").on(t.schoolId), tenant("academic_year")],
+  (t) => [index("section_school").on(t.schoolId), unique("section_name").on(t.gradeLevelId, t.name), tenant("section")],
+).enableRLS();
+
+export const subject = pgTable(
+  "subject",
+  { ...base(), name: text().notNull(), code: text() },
+  (t) => [index("subject_school").on(t.schoolId), unique("subject_name").on(t.schoolId, t.name), tenant("subject")],
 ).enableRLS();
 
 export const role = pgEnum("role", ["principal", "admin", "teacher", "student", "parent"]);
