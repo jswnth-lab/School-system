@@ -1,5 +1,5 @@
 :root {
-  --accent: #2457d6; --bg: #f4f6f9; --surface: #fff; --fg: #15202b; --muted: #5d6b7a; --line: #dbe2ea; --danger: #b3261e;
+  --accent: #2457d6; --bg: #f4f6f9; --surface: #fff; --fg: #15202b; --muted: #5d6b7a; --line: #dbe2ea; --danger: #b3261e; --accent-fg: #fff;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--fg); background: var(--bg);
 }
 @media (prefers-color-scheme: dark) {
@@ -34,3 +34,11 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: upp
 .muted { color: var(--muted); font-size: 14px; }
 .pill { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--line); }
 .pill.warn { background: var(--danger); color: #fff; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; inset-inline-start: 8px; top: -48px; background: var(--accent); color: var(--accent-fg, #fff); padding: 8px 12px; border-radius: 6px; z-index: 10; }
+.skip:focus { top: 8px; }
+header.bar nav { display: flex; gap: 14px; flex-wrap: wrap; margin-inline-start: 12px; }
+header.bar nav a { text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; color: var(--fg); }
+header.bar nav a[aria-current='page'] { border-color: var(--accent); }
+button.primary, nav.tabs button[aria-pressed='true'] { color: var(--accent-fg, #fff); }
+@media (max-width: 640px) { header.bar { flex-wrap: wrap; } }

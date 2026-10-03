@@ -88,6 +88,12 @@ export const subject = pgTable(
   (t) => [index("subject_school").on(t.schoolId), unique("subject_name").on(t.schoolId, t.name), tenant("subject")],
 ).enableRLS();
 
+export const room = pgTable(
+  "room",
+  { ...base(), name: text().notNull(), capacity: integer() },
+  (t) => [index("room_school").on(t.schoolId), unique("room_name").on(t.schoolId, t.name), tenant("room")],
+).enableRLS();
+
 export const role = pgEnum("role", ["principal", "admin", "teacher", "student", "parent"]);
 
 // A user's role(s) inside one school. Authorization source of truth.

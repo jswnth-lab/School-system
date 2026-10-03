@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from './api'
 import { useCtx } from './School'
+import { t } from './i18n'
 
 type Row = Record<string, any>
 type Cred = { who: string; identifier: string; password: string }
@@ -48,6 +49,14 @@ export function People() {
     } catch (x) { setErr((x as Error).message) }
   }
 
+  const reset = async (r: Row) => {
+    if (!window.confirm('Reset this password? They are signed out everywhere.')) return
+    try {
+      const d = await api(`${base}/${tab}/${r.id}/reset-password`, { method: 'POST', body: {} })
+      setCred({ who: r.name ?? `${r.firstName} ${r.lastName}`, identifier: r.admissionNo ?? r.employeeNo ?? r.email ?? r.phone, password: d.password })
+    } catch (x) { setErr((x as Error).message) }
+  }
+
   const cols: Record<string, [string, (r: Row) => string][]> = {
     students: [['Admission no', (r) => r.admissionNo], ['Name', (r) => `${r.firstName} ${r.lastName}`], ['Class', (r) => (r.grade ? `${r.grade} ${r.section}` : '')]],
     teachers: [['Employee no', (r) => r.employeeNo], ['Name', (r) => `${r.firstName} ${r.lastName}`], ['Email', (r) => r.email ?? '']],
@@ -60,10 +69,10 @@ export function People() {
   }
 
   return (
-    <main>
-      <h1>People</h1>
-      <nav className="tabs">
-        {TABS.map((t) => <button key={t} aria-pressed={tab === t} onClick={() => { setTab(t); setOffset(0); setQ('') }}>{t[0].toUpperCase() + t.slice(1)}</button>)}
+    <main id="main">
+      <h1>{t('people')}</h1>
+      <nav className="tabs" aria-label="People">
+        {TABS.map((x) => <button key={x} type="button" aria-pressed={tab === x} onClick={() => { setTab(x); setOffset(0); setQ('') }}>{t(x)}</button>)}
         {canWrite && <Link to={`/${school}/import`} style={{ marginInlineStart: 'auto' }}>Import from CSV</Link>}
       </nav>
       {cred && (
@@ -76,34 +85,35 @@ export function People() {
       )}
       <div className="card">
         {tab === 'students' && (
-          <label style={{ maxWidth: 320, marginBottom: 12 }}>Search<input value={q} onChange={(e) => { setQ(e.target.value); setOffset(0) }} placeholder="Name or admission no" /></label>
+          <label style={{ maxWidth: 320, marginBottom: 12 }}>{t('search')}<input value={q} onChange={(e) => { setQ(e.target.value); setOffset(0) }} placeholder="Name or admission no" /></label>
         )}
         <div className="table-wrap">
           <table>
-            <thead><tr>{cols[tab].map(([h]) => <th key={h}>{h}</th>)}<th>Login</th>{canWrite && <th />}</tr></thead>
+            <caption className="sr-only">{t(tab)}</caption>
+            <thead><tr>{cols[tab].map(([h]) => <th key={h} scope="col">{h}</th>)}<th scope="col">{t('login')}</th>{canWrite && <th />}</tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
                   {cols[tab].map(([h, f]) => <td key={h}>{f(r)}</td>)}
-                  <td>{r.userId ? <span className="pill">active</span> : canWrite ? <button className="link" style={{ color: 'var(--accent)' }} onClick={() => provision(r)}>Create login</button> : ''}</td>
-                  {canWrite && <td><button className="link" onClick={() => del(r.id)}>Delete</button></td>}
+                  <td>{r.userId ? (<><span className="pill">{t('active')}</span>{canWrite && <button type="button" className="link" style={{ color: 'var(--accent)', marginInlineStart: 8 }} onClick={() => reset(r)}>{t('resetPassword')}</button>}</>) : canWrite ? <button type="button" className="link" style={{ color: 'var(--accent)' }} onClick={() => provision(r)}>{t('createLogin')}</button> : ''}</td>
+                  {canWrite && <td><button type="button" className="link" onClick={() => del(r.id)}>{t('delete')}</button></td>}
                 </tr>
               ))}
-              {!rows.length && <tr><td colSpan={5} className="muted">Nobody here yet. Add someone below or import a CSV.</td></tr>}
+              {!rows.length && <tr><td colSpan={5} className="muted">{t('nothing')}</td></tr>}
             </tbody>
           </table>
         </div>
         {tab === 'students' && total > LIMIT && (
           <p className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {offset + 1}–{Math.min(offset + LIMIT, total)} of {total}
-            <button className="link" style={{ color: 'var(--accent)' }} disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))}>Previous</button>
-            <button className="link" style={{ color: 'var(--accent)' }} disabled={offset + LIMIT >= total} onClick={() => setOffset(offset + LIMIT)}>Next</button>
+            <button className="link" style={{ color: 'var(--accent)' }} disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))}>{t('previous')}</button>
+            <button className="link" style={{ color: 'var(--accent)' }} disabled={offset + LIMIT >= total} onClick={() => setOffset(offset + LIMIT)}>{t('next')}</button>
           </p>
         )}
         {canWrite && (
           <form className="row" onSubmit={add}>
             {fields[tab].map(([k, l, req]) => <label key={k}>{l}<input name={k} required={req} type={k === 'email' ? 'email' : 'text'} /></label>)}
-            <button className="primary">Add</button>
+            <button className="primary">{t('add')}</button>
           </form>
         )}
         {err && <p className="err" role="alert">{err}</p>}

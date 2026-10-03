@@ -74,7 +74,7 @@ export function Import() {
   }
 
   return (
-    <main>
+    <main id="main">
       <h1>Import from CSV</h1>
       <div className="card">
         <nav className="tabs">

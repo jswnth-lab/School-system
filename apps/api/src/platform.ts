@@ -4,6 +4,7 @@ import { z } from "zod";
 import { school, plan, user, membership, auditLog, withTenant } from "@sms/db";
 import type { Env } from "./types.ts";
 import { createCredentialUser } from "./users.ts";
+import { uploadLogo } from "./logo.ts";
 
 export const RESERVED_SLUGS = ["auth", "health", "platform", "api", "www", "admin", "app", "static", "assets", "login", "logo"];
 const slug = z.string().regex(/^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/).refine((v) => !RESERVED_SLUGS.includes(v), "reserved slug");
@@ -70,20 +71,4 @@ platform.patch("/schools/:id", async (c) => {
   return c.json({ id: s.id, status: s.status, planId: s.planId });
 });
 
-const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"]; // no SVG: scriptable, served same-origin
-platform.put("/schools/:id/logo", async (c) => {
-  const type = c.req.header("content-type") ?? "";
-  if (!LOGO_TYPES.includes(type)) return c.json({ error: "png, jpeg or webp only" }, 415);
-  const buf = await c.req.arrayBuffer();
-  if (buf.byteLength === 0 || buf.byteLength > 512 * 1024) return c.json({ error: "logo must be 1 B to 512 KB" }, 413);
-  const db = c.get("db");
-  const id = c.req.param("id")!;
-  if (!(await db.select({ id: school.id }).from(school).where(eq(school.id, id))).length) return c.json({ error: "not found" }, 404);
-  const key = `${id}/branding/logo`; // R2 keys are prefixed by school id
-  await c.env.FILES.put(key, buf, { httpMetadata: { contentType: type } });
-  await db.update(school).set({ logoKey: key }).where(eq(school.id, id));
-  await withTenant(db, id, (tx) =>
-    tx.insert(auditLog).values({ schoolId: id, actorUserId: c.get("userId"), action: "school.logo", entity: "school", entityId: id }),
-  );
-  return c.json({ ok: true });
-});
+platform.put("/schools/:id/logo", (c) => uploadLogo(c, c.req.param("id")!));

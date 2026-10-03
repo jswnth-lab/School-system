@@ -17,7 +17,13 @@ export const env = {
   FILES,
 };
 export const db = connect(env.DATABASE_URL);
-export const call = (path: string, init: RequestInit = {}) => app.request(path, init, env);
+// Each call gets its own fake client IP: without cf-connecting-ip Better Auth shares one rate-limit bucket across all tests.
+const ip = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+export const call = (path: string, init: RequestInit = {}) => {
+  const headers = new Headers(init.headers);
+  if (!headers.has("cf-connecting-ip")) headers.set("cf-connecting-ip", ip());
+  return app.request(path, { ...init, headers }, env);
+};
 export const json = (body: unknown, extra: Record<string, string> = {}, method = "POST"): RequestInit => ({
   method, headers: { "content-type": "application/json", ...extra }, body: JSON.stringify(body),
 });

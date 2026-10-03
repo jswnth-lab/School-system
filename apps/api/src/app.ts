@@ -9,6 +9,7 @@ import { session } from "./session.ts";
 import { structure } from "./structure.ts";
 import { people } from "./people.ts";
 import { importer } from "./import.ts";
+import { admin } from "./admin.ts";
 import { emailFor, createCredentialUser } from "./users.ts";
 import type { Env } from "./types.ts";
 
@@ -111,4 +112,5 @@ tenant.post("/users", session, requireRole("principal", "admin"), async (c) => {
 tenant.route("/structure", structure);
 tenant.route("/people", people);
 tenant.route("/import", importer);
+tenant.route("/", admin);
 app.route("/api/v1/:school", tenant);

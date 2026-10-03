@@ -3,11 +3,11 @@ import { and, eq, ilike, or, sql, getTableColumns, asc } from "drizzle-orm";
 import { z } from "zod";
 import {
   student, teacher, guardian, studentGuardian, enrollment, classSubjectTeacher, academicYear, section, gradeLevel, subject,
-  membership, auditLog, withTenant,
+  membership, auditLog, withTenant, session,
 } from "@sms/db";
 import type { Env } from "./types.ts";
 import { crud } from "./crud.ts";
-import { session } from "./session.ts";
+import { session as requireSession } from "./session.ts";
 import { requireRole } from "./rbac.ts";
 import { emailFor, createCredentialUser } from "./users.ts";
 
@@ -19,7 +19,7 @@ const opt = (n = 200) => z.string().trim().max(n).nullable().optional();
 export const people = new Hono<Env>();
 
 // Students: custom list (search, paging, current section) registered before the generic CRUD so it wins on GET.
-people.get("/students", session, requireRole(...STAFF), async (c) => {
+people.get("/students", requireSession, requireRole(...STAFF), async (c) => {
   const limit = Math.min(Number(c.req.query("limit")) || 50, 200);
   const offset = Math.max(Number(c.req.query("offset")) || 0, 0);
   const q = c.req.query("q")?.trim();
@@ -30,7 +30,7 @@ people.get("/students", session, requireRole(...STAFF), async (c) => {
   );
   const out = await withTenant(c.get("db"), c.get("schoolId"), async (tx) => {
     const from = () =>
-      tx.select({ ...getTableColumns(student), sectionId: section.id, section: section.name, grade: gradeLevel.name }).from(student)
+      tx.select({ ...getTableColumns(student), enrollmentId: enrollment.id, sectionId: section.id, section: section.name, grade: gradeLevel.name }).from(student)
         .leftJoin(enrollment, and(eq(enrollment.studentId, student.id), eq(enrollment.academicYearId, sql`(select id from academic_year where "current" limit 1)`)))
         .leftJoin(section, eq(section.id, enrollment.sectionId))
         .leftJoin(gradeLevel, eq(gradeLevel.id, section.gradeLevelId));
@@ -87,7 +87,7 @@ const KINDS = {
 const ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no look-alikes
 const tempPassword = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) => ALPHABET[b % ALPHABET.length]).join("");
 
-people.post("/:kind/:id/login", session, requireRole("principal", "admin"), async (c) => {
+people.post("/:kind/:id/login", requireSession, requireRole("principal", "admin"), async (c) => {
   const k = KINDS[c.req.param("kind") as keyof typeof KINDS];
   if (!k) return c.json({ error: "not found" }, 404);
   const db = c.get("db");
@@ -108,4 +108,21 @@ people.post("/:kind/:id/login", session, requireRole("principal", "admin"), asyn
     await tx.insert(auditLog).values({ schoolId, actorUserId: c.get("userId"), action: "login.provision", entity: c.req.param("kind"), entityId: (row as any).id, meta: { role: k.role } });
   });
   return c.json({ identifier: String(identifier), password }, 201);
+});
+
+// Reset a provisioned login. Safe across schools: provisioning refuses existing accounts, so these users belong to this school only.
+people.post("/:kind/:id/reset-password", requireSession, requireRole("principal", "admin"), async (c) => {
+  const k = KINDS[c.req.param("kind") as keyof typeof KINDS];
+  if (!k) return c.json({ error: "not found" }, 404);
+  const schoolId = c.get("schoolId");
+  const [row] = await withTenant(c.get("db"), schoolId, (tx) => tx.select().from(k.table as any).where(eq((k.table as any).id, c.req.param("id")!)));
+  if (!row || !(row as any).userId) return c.json({ error: "no login to reset" }, 404);
+  const ctx = await c.get("auth").$context;
+  const password = tempPassword();
+  await ctx.internalAdapter.updatePassword((row as any).userId, await ctx.password.hash(password));
+  await c.get("db").delete(session).where(eq(session.userId, (row as any).userId)); // sign out everywhere
+  await withTenant(c.get("db"), schoolId, (tx) =>
+    tx.insert(auditLog).values({ schoolId, actorUserId: c.get("userId"), action: "login.reset", entity: c.req.param("kind"), entityId: (row as any).id }),
+  );
+  return c.json({ password });
 });

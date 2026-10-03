@@ -43,6 +43,13 @@
       "when": 1791019480199,
       "tag": "0005_third_mandrill",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791019944136,
+      "tag": "0006_overrated_the_stranger",
+      "breakpoints": true
     }
   ]
 }

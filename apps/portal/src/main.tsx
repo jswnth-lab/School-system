@@ -7,6 +7,9 @@ import { SchoolLayout, Login, Dashboard } from './School'
 import { Setup } from './Setup'
 import { People } from './People'
 import { Import } from './Import'
+import { Classes } from './Classes'
+import { Users } from './Users'
+import { Audit } from './Audit'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -19,6 +22,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="setup" element={<Setup />} />
           <Route path="people" element={<People />} />
           <Route path="import" element={<Import />} />
+          <Route path="classes" element={<Classes />} />
+          <Route path="users" element={<Users />} />
+          <Route path="audit" element={<Audit />} />
         </Route>
         <Route path="*" element={<Navigate to="/platform" replace />} />
       </Routes>
