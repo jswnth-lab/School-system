@@ -1,0 +1,13 @@
+{
+  "name": "@sms/db",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "test": "node --test --experimental-strip-types test/*.test.ts"
+  },
+  "dependencies": { "drizzle-orm": "^0.44", "postgres": "^3" },
+  "devDependencies": { "drizzle-kit": "^0.31", "@types/node": "^22" }
+}
