@@ -3,6 +3,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
+  "placement": { "mode": "smart" }, // run near Supabase (ap-southeast-2)
   "assets": { "directory": "../portal/dist", "not_found_handling": "single-page-application", "run_worker_first": ["/api/*"] },
   "triggers": { "crons": ["0 6 * * *"] } // keep Supabase free project awake
 }

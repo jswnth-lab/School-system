@@ -1,10 +1,13 @@
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { connect, school, academicYear, withTenant } from "../src/index.ts";
 
 // DATABASE_URL must use the non-owner app role (no BYPASSRLS), else RLS is skipped.
+let db: ReturnType<typeof connect>;
+after(() => db.$client.end());
+
 test("school B cannot read school A rows", async () => {
-  const db = connect(process.env.DATABASE_URL!);
+  db = connect(process.env.DATABASE_URL!);
   const t = Date.now();
   const [a, b] = await db.insert(school).values([
     { slug: `a-${t}`, name: "A" },

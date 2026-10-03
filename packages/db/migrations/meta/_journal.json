@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791015201121,
+      "tag": "0000_mature_nico_minoru",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791015202090,
+      "tag": "0001_lock_down_api_roles",
+      "breakpoints": true
+    }
+  ]
+}
