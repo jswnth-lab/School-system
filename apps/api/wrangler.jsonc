@@ -3,7 +3,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
-  "placement": { "region": "aws:ap-southeast-2" }, // run next to Supabase: ~10 DB round trips per request, so DB distance dominates
+  "placement": { "region": "aws:ap-south-1" }, // run next to Supabase (Mumbai): ~10 DB round trips per request, so DB distance dominates
   "assets": { "directory": "../portal/dist", "not_found_handling": "single-page-application", "run_worker_first": ["/api/*"] },
   "r2_buckets": [{ "binding": "FILES", "bucket_name": "sms-files" }],
   "triggers": { "crons": ["0 6 * * *"] } // keep Supabase free project awake
