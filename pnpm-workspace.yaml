@@ -4,4 +4,3 @@ packages:
 allowBuilds:
   esbuild: true
   workerd: true
-storeDir: /home/jashu/.pnpm-store
