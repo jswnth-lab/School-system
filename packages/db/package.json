@@ -5,9 +5,8 @@
   "main": "src/index.ts",
   "scripts": {
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate",
     "test": "node --test --experimental-strip-types test/*.test.ts"
   },
-  "dependencies": { "drizzle-orm": "^0.44", "postgres": "^3" },
-  "devDependencies": { "drizzle-kit": "^0.31", "@types/node": "^22" }
+  "dependencies": { "drizzle-orm": "^0.44" },
+  "devDependencies": { "drizzle-kit": "^0.31", "@cloudflare/workers-types": "^4", "@types/node": "^22" }
 }

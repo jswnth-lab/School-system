@@ -1,27 +1,23 @@
-import { pgTable, uuid, text, timestamp, pgPolicy } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 
-// school is the tenant root; not RLS-scoped itself (resolved by slug before tenant context exists).
-export const school = pgTable("school", {
-  id: uuid().primaryKey().defaultRandom(),
+const id = () => text().primaryKey().$defaultFn(() => crypto.randomUUID());
+const createdAt = () => integer({ mode: "timestamp" }).notNull().$defaultFn(() => new Date());
+
+// school = tenant root, resolved by slug before tenant context exists.
+export const school = sqliteTable("school", {
+  id: id(),
   slug: text().notNull().unique(),
   name: text().notNull(),
-  createdAt: timestamp().notNull().defaultNow(),
+  createdAt: createdAt(),
 });
 
-const tenantPolicy = (name: string) =>
-  pgPolicy(`${name}_tenant`, {
-    for: "all",
-    using: sql`school_id = current_setting('app.school_id')::uuid`,
-    withCheck: sql`school_id = current_setting('app.school_id')::uuid`,
-  });
-
-export const academicYear = pgTable(
+// Every tenant table: schoolId notNull + index. Access only via tenantDb().
+export const academicYear = sqliteTable(
   "academic_year",
   {
-    id: uuid().primaryKey().defaultRandom(),
-    schoolId: uuid("school_id").notNull().references(() => school.id),
+    id: id(),
+    schoolId: text("school_id").notNull().references(() => school.id),
     name: text().notNull(),
   },
-  () => [tenantPolicy("academic_year")],
-).enableRLS();
+  (t) => [index("academic_year_school").on(t.schoolId)],
+);

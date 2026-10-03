@@ -1,5 +1,18 @@
 # School Management SaaS: Plan
 
+## REVISION 2026-10-03: Cloudflare D1 + R2 (free tier). Supersedes Postgres/RLS/Next.js/Vercel parts below.
+- **DB**: D1 (SQLite) via Drizzle `drizzle-orm/d1`. Migrations by `wrangler d1 migrations`.
+- **Files**: R2 (presigned URLs, direct client upload). No egress fees.
+- **API**: Hono on Cloudflare Workers at `/api/v1`. Same zod + OpenAPI + typed client in `packages/contracts`.
+- **Web portal**: Vite + React SPA (React Router, TanStack Query) served by Workers static assets. Replaces Next.js: Next via OpenNext likely exceeds the 3 MB compressed free-Worker size limit and 10 ms CPU cap. One Worker = API + portal = still "one website".
+- **Tenant isolation**: D1 has no RLS. Shared DB, `school_id` on every row. Enforced by one rule: all queries go through `tenantDb(schoolId)` helper (adds `school_id` filter/value); raw `db` import banned by lint. Cross-tenant test in CI (miniflare/`wrangler dev --local`). Per-school D1 databases rejected: free plan caps at 10 databases.
+- **Auth**: Better Auth with D1 adapter (Drizzle). KV optional for rate limits.
+- **Jobs**: Cron Triggers + Queues (fee reminders, notification fan-out, CSV import). PDFs: client-side or Browser Rendering later.
+- **Email**: Resend. **Push**: Expo Push. Unchanged.
+- **Hosting/CI**: Wrangler deploy from GitHub Actions. Subdomain per school via wildcard route `*.yourapp.com`.
+- **Free-tier ceilings** (verify current limits before committing): Workers 100k req/day, 10 ms CPU; D1 5 GB total, 5M reads + 100k writes/day, max 10 DBs; R2 10 GB, 1M writes + 10M reads/month. Fine for dev + pilot. Production SaaS needs Workers Paid (about $5/mo) before school #2: daily write cap breaks attendance/marks at 1 school of 1000 students.
+- D1 gotchas: no `SET LOCAL`, no row-level policy, 100 bound params per query (chunk bulk imports), 10 GB per DB hard cap, SQLite types (store money as integer minor units, dates as ISO text/int).
+
 ## Context
 Multi-tenant SaaS for schools. Each school gets its own branding.
 - **1 web app**: API server + principal/admin portal + platform super-admin. Next.js.
