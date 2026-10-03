@@ -15,6 +15,13 @@
       "when": 1791015202090,
       "tag": "0001_lock_down_api_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791016261721,
+      "tag": "0002_free_the_renegades",
+      "breakpoints": true
     }
   ]
 }

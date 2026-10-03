@@ -1,8 +1,7 @@
-import { pgTable, pgRole, uuid, text, timestamp, pgPolicy, index } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, uuid, text, timestamp, jsonb, pgPolicy, index, unique } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-
-// Created outside migrations (password): see migrations/README.
-export const appUser = pgRole("app_user").existing();
+import { appUser } from "./roles.ts";
+import { user } from "./auth-schema.ts";
 
 // school = tenant root, looked up by slug before tenant context exists.
 // RLS on with a policy for app_user only, so Supabase anon/authenticated (PostgREST) see nothing.
@@ -33,4 +32,39 @@ export const academicYear = pgTable(
     name: text().notNull(),
   },
   (t) => [index("academic_year_school").on(t.schoolId), tenant("academic_year")],
+).enableRLS();
+
+export const role = pgEnum("role", ["principal", "admin", "teacher", "student", "parent"]);
+
+// A user's role(s) inside one school. Authorization source of truth.
+export const membership = pgTable(
+  "membership",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    schoolId: uuid("school_id").notNull().references(() => school.id),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    role: role().notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [unique("membership_unique").on(t.schoolId, t.userId, t.role), index("membership_user").on(t.userId), tenant("membership")],
+).enableRLS();
+
+// Append-only: only select + insert policies exist, so update/delete are denied.
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    schoolId: uuid("school_id").notNull().references(() => school.id),
+    actorUserId: text("actor_user_id"),
+    action: text().notNull(),
+    entity: text(),
+    entityId: text("entity_id"),
+    meta: jsonb(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("audit_log_school_time").on(t.schoolId, t.createdAt),
+    pgPolicy("audit_log_select", { for: "select", to: appUser, using: sql`school_id = current_setting('app.school_id')::uuid` }),
+    pgPolicy("audit_log_insert", { for: "insert", to: appUser, withCheck: sql`school_id = current_setting('app.school_id')::uuid` }),
+  ],
 ).enableRLS();
