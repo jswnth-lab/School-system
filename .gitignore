@@ -7,3 +7,4 @@ dist
 .expo
 .dev.vars
 .wrangler
+.demo-credentials.txt
