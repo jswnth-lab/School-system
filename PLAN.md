@@ -1,5 +1,14 @@
 # School Management SaaS: Plan
 
+## REVISION 2 2026-10-03: stack per school, domain jswnth.com
+- **Isolation by physical separation**: each school = own D1 database + R2 bucket + Worker (API + portal) + domain `{brand}.jswnth.com`. No shared tenant tables. RLS not needed. Drop `school_id` columns and `tenantDb()` scoping (single-school schema). Supersedes Revision 1 "Tenant isolation".
+- **Control plane** (one Worker + its own D1 at `platform.jswnth.com`): tenant registry, plans, billing, provisioning, build jobs, platform super-admin. Only place that knows all schools.
+- **Provisioning** (Cloudflare API, triggered from control plane): create D1, create R2 bucket, apply migrations, deploy Worker from the shared codebase with generated wrangler config + secrets, attach route/custom domain, seed principal account.
+- **Releases**: one codebase; release = migrate + deploy every school stack (script loops registry; canary school first; per-school version pinned in registry).
+- **Mobile**: white-label build per school points at `https://{brand}.jswnth.com/api/v1` (no tenant header needed).
+- **Free-tier fit**: free account caps (verify): 10 D1 databases, 100 Workers, 1000 R2 buckets, limits are per account, daily request/write caps are per account too, not per school. About 9 schools max on free, usable for dev/pilot only. Paid plan lifts to 50,000 D1 DBs.
+- Cross-school analytics: control plane pulls aggregates via each school's API. No cross-DB queries.
+
 ## REVISION 2026-10-03: Cloudflare D1 + R2 (free tier). Supersedes Postgres/RLS/Next.js/Vercel parts below.
 - **DB**: D1 (SQLite) via Drizzle `drizzle-orm/d1`. Migrations by `wrangler d1 migrations`.
 - **Files**: R2 (presigned URLs, direct client upload). No egress fees.
