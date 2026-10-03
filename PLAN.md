@@ -1,5 +1,14 @@
 # School Management SaaS: Plan
 
+## REVISION 3 2026-10-03: Supabase Postgres + Cloudflare Workers/R2, workers.dev domain. Supersedes Revision 1+2 DB/isolation parts.
+- **DB**: one Supabase project (Postgres), shared by all schools. `school_id` on every tenant table + **RLS** (as in the original plan). Reason: Supabase free = 2 projects per org, so per-school projects are not possible. D1 dropped.
+- **Access**: Drizzle + `postgres` over Supavisor transaction pooler from Workers (`nodejs_compat`). Per request: transaction + `set_config('app.school_id', ..., true)`. App connects as a non-owner role without BYPASSRLS. Supabase Auth/PostgREST/Realtime not used by app code (API-only access), so also revoke `anon`/`authenticated` grants on app tables.
+- **Keep-alive**: Supabase free pauses after ~7 days idle. Workers Cron Trigger runs `select 1` daily.
+- **Files**: R2 stays (presigned). **Compute**: one Hono Worker = API + portal static assets. Per-school Worker/R2 dropped for now (shared bucket, key prefix `{school_id}/`).
+- **Domain**: `*.workers.dev` for now (no wildcard subdomains), so tenant is a path segment: portal `/{school}/...`, API `/api/v1/{school}/...`. Mobile builds bake slug. Move to `{brand}.jswnth.com` later: needs jswnth.com nameservers on Cloudflare, or a CNAME per school at Spaceship (no wildcard SSL via Workers without CF DNS).
+- Repo layout: `apps/api` (Worker), `apps/portal` (Vite React), `packages/db`.
+- Env: `apps/api/.dev.vars` (runtime + migrations). Prod via `wrangler secret put`.
+
 ## REVISION 2 2026-10-03: stack per school, domain jswnth.com
 - **Isolation by physical separation**: each school = own D1 database + R2 bucket + Worker (API + portal) + domain `{brand}.jswnth.com`. No shared tenant tables. RLS not needed. Drop `school_id` columns and `tenantDb()` scoping (single-school schema). Supersedes Revision 1 "Tenant isolation".
 - **Control plane** (one Worker + its own D1 at `platform.jswnth.com`): tenant registry, plans, billing, provisioning, build jobs, platform super-admin. Only place that knows all schools.

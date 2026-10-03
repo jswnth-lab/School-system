@@ -1,21 +1,18 @@
-import { drizzle } from "drizzle-orm/d1";
-import { and, eq } from "drizzle-orm";
-import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { sql } from "drizzle-orm";
 import * as schema from "./schema.ts";
 
 export * from "./schema.ts";
-export const connect = (d1: D1Database) => drizzle(d1, { schema });
 
-type TenantTable = SQLiteTable & { schoolId: any };
+// prepare:false required for Supavisor transaction pooler.
+export const connect = (url: string) => drizzle(postgres(url, { prepare: false, max: 1 }), { schema });
+export type Db = ReturnType<typeof connect>;
 
-/** Only sanctioned way to touch tenant tables. D1 has no RLS, so scoping lives here. */
-export function tenantDb(d1: D1Database, schoolId: string) {
-  const db = connect(d1);
-  return {
-    select: <T extends TenantTable>(t: T, extra?: any) =>
-      db.select().from(t).where(extra ? and(eq(t.schoolId, schoolId), extra) : eq(t.schoolId, schoolId)),
-    insert: <T extends TenantTable>(t: T, values: Omit<T["$inferInsert"], "schoolId">) =>
-      db.insert(t).values({ ...values, schoolId } as any),
-    // update/delete helpers added with first use (YAGNI)
-  };
+/** Run fn in a transaction scoped to one school; RLS enforces isolation. */
+export function withTenant<T>(db: Db, schoolId: string, fn: (tx: Db) => Promise<T>) {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('app.school_id', ${schoolId}, true)`);
+    return fn(tx as unknown as Db);
+  });
 }

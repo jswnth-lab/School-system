@@ -2,4 +2,6 @@ packages:
   - apps/*
   - packages/*
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
+  workerd: true
+storeDir: /home/jashu/.pnpm-store

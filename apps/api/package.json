@@ -1,0 +1,12 @@
+{
+  "name": "@sms/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "wrangler deploy --dry-run --outdir dist"
+  },
+  "dependencies": { "@sms/db": "workspace:*", "hono": "^4", "drizzle-orm": "^0.44" },
+  "devDependencies": { "wrangler": "^4", "@cloudflare/workers-types": "^4" }
+}
