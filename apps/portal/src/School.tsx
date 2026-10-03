@@ -91,6 +91,7 @@ export function Dashboard() {
       <h1>Welcome to {cfg.name}</h1>
       <p className="muted">Signed in as {me?.roles.join(', ')}.</p>
       {staff && <p><Link to={`/${school}/setup`}>School setup: years, terms, grades, sections, subjects</Link></p>}
+      {me?.roles.some((r) => ['principal', 'admin', 'teacher'].includes(r)) && <p><Link to={`/${school}/people`}>People: students, teachers, guardians</Link></p>}
     </main>
   )
 }

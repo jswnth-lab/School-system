@@ -122,3 +122,69 @@ export const auditLog = pgTable(
     pgPolicy("audit_log_insert", { for: "insert", to: appUser, withCheck: sql`school_id = current_setting('app.school_id')::uuid` }),
   ],
 ).enableRLS();
+
+// ---- People. A person record exists without a login; user_id is set when a login is provisioned. ----
+const person = () => ({ firstName: text("first_name").notNull(), lastName: text("last_name").notNull() });
+const login = () => ({ userId: text("user_id").references(() => user.id, { onDelete: "set null" }) });
+
+export const student = pgTable(
+  "student",
+  {
+    ...base(), ...person(), ...login(),
+    admissionNo: text("admission_no").notNull(),
+    dob: date(),
+    gender: text({ enum: ["female", "male", "other"] }),
+    status: text({ enum: ["active", "inactive"] }).notNull().default("active"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("student_school").on(t.schoolId), unique("student_admission").on(t.schoolId, t.admissionNo), tenant("student")],
+).enableRLS();
+
+export const teacher = pgTable(
+  "teacher",
+  { ...base(), ...person(), ...login(), employeeNo: text("employee_no").notNull(), email: text(), phone: text(), createdAt: timestamp("created_at").notNull().defaultNow() },
+  (t) => [index("teacher_school").on(t.schoolId), unique("teacher_employee").on(t.schoolId, t.employeeNo), tenant("teacher")],
+).enableRLS();
+
+// contact_key = lower(email) or phone: one guardian row per real contact, shared across siblings.
+export const guardian = pgTable(
+  "guardian",
+  { ...base(), ...login(), name: text().notNull(), email: text(), phone: text(), contactKey: text("contact_key").notNull(), createdAt: timestamp("created_at").notNull().defaultNow() },
+  (t) => [index("guardian_school").on(t.schoolId), unique("guardian_contact").on(t.schoolId, t.contactKey), tenant("guardian")],
+).enableRLS();
+
+export const studentGuardian = pgTable(
+  "student_guardian",
+  {
+    ...base(),
+    studentId: uuid("student_id").notNull().references(() => student.id, { onDelete: "cascade" }),
+    guardianId: uuid("guardian_id").notNull().references(() => guardian.id, { onDelete: "cascade" }),
+    relationship: text(),
+    isPrimary: boolean("is_primary").notNull().default(false),
+  },
+  (t) => [index("student_guardian_school").on(t.schoolId), index("student_guardian_guardian").on(t.guardianId), unique("student_guardian_pair").on(t.studentId, t.guardianId), tenant("student_guardian")],
+).enableRLS();
+
+export const enrollment = pgTable(
+  "enrollment",
+  {
+    ...base(),
+    studentId: uuid("student_id").notNull().references(() => student.id, { onDelete: "cascade" }),
+    academicYearId: uuid("academic_year_id").notNull().references(() => academicYear.id, { onDelete: "cascade" }),
+    sectionId: uuid("section_id").notNull().references(() => section.id, { onDelete: "cascade" }),
+    rollNo: text("roll_no"),
+  },
+  (t) => [index("enrollment_school").on(t.schoolId), index("enrollment_section").on(t.sectionId), unique("enrollment_student_year").on(t.studentId, t.academicYearId), tenant("enrollment")],
+).enableRLS();
+
+export const classSubjectTeacher = pgTable(
+  "class_subject_teacher",
+  {
+    ...base(),
+    academicYearId: uuid("academic_year_id").notNull().references(() => academicYear.id, { onDelete: "cascade" }),
+    sectionId: uuid("section_id").notNull().references(() => section.id, { onDelete: "cascade" }),
+    subjectId: uuid("subject_id").notNull().references(() => subject.id, { onDelete: "cascade" }),
+    teacherId: uuid("teacher_id").notNull().references(() => teacher.id, { onDelete: "cascade" }),
+  },
+  (t) => [index("cst_school").on(t.schoolId), index("cst_teacher").on(t.teacherId), unique("cst_unique").on(t.academicYearId, t.sectionId, t.subjectId), tenant("class_subject_teacher")],
+).enableRLS();

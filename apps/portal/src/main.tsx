@@ -5,6 +5,8 @@ import './index.css'
 import { Platform } from './Platform'
 import { SchoolLayout, Login, Dashboard } from './School'
 import { Setup } from './Setup'
+import { People } from './People'
+import { Import } from './Import'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -15,6 +17,8 @@ createRoot(document.getElementById('root')!).render(
           <Route index element={<Dashboard />} />
           <Route path="login" element={<Login />} />
           <Route path="setup" element={<Setup />} />
+          <Route path="people" element={<People />} />
+          <Route path="import" element={<Import />} />
         </Route>
         <Route path="*" element={<Navigate to="/platform" replace />} />
       </Routes>
