@@ -10,12 +10,14 @@ import { structure } from "./structure.ts";
 import { people } from "./people.ts";
 import { importer } from "./import.ts";
 import { admin } from "./admin.ts";
+import { me, MIN_APP_VERSION } from "./me.ts";
 import { emailFor, createCredentialUser } from "./users.ts";
 import type { Env } from "./types.ts";
 
 export const app = new Hono<Env>();
 
 app.get("/api/v1/health", (c) => c.json({ ok: true }));
+app.get("/api/v1/app-config", (c) => c.json({ minVersion: MIN_APP_VERSION }));
 
 // One DB connection per request, closed after the response.
 app.use("/api/*", async (c, next) => {
@@ -113,4 +115,5 @@ tenant.route("/structure", structure);
 tenant.route("/people", people);
 tenant.route("/import", importer);
 tenant.route("/", admin);
+tenant.route("/", me);
 app.route("/api/v1/:school", tenant);

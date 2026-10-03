@@ -94,6 +94,20 @@ export const room = pgTable(
   (t) => [index("room_school").on(t.schoolId), unique("room_name").on(t.schoolId, t.name), tenant("room")],
 ).enableRLS();
 
+// Expo push tokens. One row per device token per school; the latest user to sign in on a device owns it.
+export const deviceToken = pgTable(
+  "device_token",
+  {
+    ...base(),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    token: text().notNull(),
+    platform: text({ enum: ["ios", "android"] }).notNull(),
+    app: text({ enum: ["teacher", "student"] }).notNull(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("device_token_user").on(t.userId), unique("device_token_unique").on(t.schoolId, t.token), tenant("device_token")],
+).enableRLS();
+
 export const role = pgEnum("role", ["principal", "admin", "teacher", "student", "parent"]);
 
 // A user's role(s) inside one school. Authorization source of truth.

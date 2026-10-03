@@ -1,0 +1,11 @@
+{
+  "name": "@sms/app-core",
+  "private": true,
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "node --test --experimental-strip-types test/*.test.ts"
+  },
+  "description": "Shared React Native code. Imports resolve from the apps' hoisted node_modules; the apps declare the native dependencies."
+}

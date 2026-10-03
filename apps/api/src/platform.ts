@@ -6,7 +6,7 @@ import type { Env } from "./types.ts";
 import { createCredentialUser } from "./users.ts";
 import { uploadLogo } from "./logo.ts";
 
-export const RESERVED_SLUGS = ["auth", "health", "platform", "api", "www", "admin", "app", "static", "assets", "login", "logo"];
+export const RESERVED_SLUGS = ["auth", "health", "platform", "api", "app-config", "www", "admin", "app", "static", "assets", "login", "logo"];
 const slug = z.string().regex(/^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/).refine((v) => !RESERVED_SLUGS.includes(v), "reserved slug");
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 

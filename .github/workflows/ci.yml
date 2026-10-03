@@ -12,4 +12,12 @@ jobs:
       - run: pnpm --filter @sms/portal build
       - run: pnpm --filter @sms/api exec tsc -p .
       - run: pnpm --filter @sms/api exec wrangler deploy --dry-run --outdir dist
+      - run: pnpm --filter @sms/app-core test
+      - run: pnpm --filter @sms/teacher exec tsc --noEmit
+      - run: pnpm --filter @sms/student exec tsc --noEmit
+      # Metro bundling catches monorepo resolution mistakes that tsc does not
+      - run: pnpm --filter @sms/teacher exec expo export --platform android --output-dir /tmp/teacher-export
+        env: { CI: "1", EXPO_NO_TELEMETRY: "1" }
+      - run: pnpm --filter @sms/student exec expo export --platform android --output-dir /tmp/student-export
+        env: { CI: "1", EXPO_NO_TELEMETRY: "1" }
       # RLS test needs DATABASE_URL secret; enable once a CI DB exists (do not point at prod).

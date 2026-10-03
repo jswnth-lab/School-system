@@ -8,3 +8,6 @@ dist
 .dev.vars
 .wrangler
 .demo-credentials.txt
+.expo
+dist
+expo-env.d.ts
