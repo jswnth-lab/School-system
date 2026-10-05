@@ -1,7 +1,6 @@
 import { Platform } from "react-native";
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { api } from "./api";
 import type { AppKind } from "./config";
 
@@ -9,6 +8,9 @@ import type { AppKind } from "./config";
 export async function registerForPush(school: string, app: AppKind): Promise<string | null> {
   try {
     if (!Device.isDevice) return null; // simulators have no push
+    // Expo Go (Android) throws as soon as expo-notifications is imported, so load it lazily and only in real builds.
+    if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return null;
+    const Notifications = await import("expo-notifications");
     const projectId = (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas?.projectId;
     if (!projectId) return null; // set by `eas init`; push stays off until then
     if (Platform.OS === "android") await Notifications.setNotificationChannelAsync("default", { name: "School updates", importance: Notifications.AndroidImportance.DEFAULT });
